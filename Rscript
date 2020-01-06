@@ -1,0 +1,574 @@
+
+
+Rscript for analyses reported in Common aetiological architecture underlying reward responsiveness, externally driven 
+eating behaviours and BMI in early childhood: findings from the Gemini twin cohort"
+
+Written by Kan, Herle and Rijsdijk 
+
+##############################################################################################################################################################################
+
+rm(list=ls())
+ls()
+
+require(OpenMx)
+require(Hmisc)
+require(psych)
+require(plyr)
+library(psych)
+library (corrplot)
+library (ggplot2)
+library (foreign)
+library(data.table)
+library("readr")
+
+  
+Data <- read.spss("YourData", to.data.frame=TRUE)
+##sex 1=male, 2=female
+                    
+class(Data) 		# to check that the data is loaded correctly, str=structure, should return "data.frame"
+str(Data)
+dim(Data)
+describe(Data)
+
+##descriptive
+table (Data$Zygosity_new)
+subData <- Data[,c("famID", "TwinID.1", "TwinID.2", "ageT7", "sex1", "sex2", "bmi_60m.1", "bmi_60m.2")]
+resLong <- reshape(subData, varying=c("bmi_60m.1", "bmi_60m.2"),
+                   direction="long", idvar=c("famID"),
+                   timevar=c("TwinID.1", "TwinID.2"))
+psych::describe (resLong$ageT7)
+psych::describe (resLong$bmi_60m)
+
+Data1 <- Data [,  c("famID", "TwinID.1", "TwinID.2", "ageT7", "sex1", "sex2", "Zygosity_new", "sexZyg_new", "SDS_BMI_60m.1", "SDS_BMI_60m.2","CEBQ_FR.1", "CEBQ_FR.2", "CEBQ_SE.1", "CEBQ_SE.2",
+                     "CEBQ_SR.1", "CEBQ_SR.2", "CEBQ_EX.1", "CEBQ_EX.2", "CBQ_IMP.1", "CBQ_IMP.2", "CBQ_IHC.1", "CBQ_IHC.2", 
+                     "BAS_RR.1", "BAS_RR.2")]
+
+setnames(Data1, old=c("TwinID.1", "TwinID.2",  "SDS_BMI_60m.1", "SDS_BMI_60m.2","CEBQ_FR.1", "CEBQ_FR.2", "CEBQ_SE.1", "CEBQ_SE.2",
+                     "CEBQ_SR.1", "CEBQ_SR.2", "CEBQ_EX.1", "CEBQ_EX.2", "CBQ_IMP.1", "CBQ_IMP.2", "CBQ_IHC.1", "CBQ_IHC.2", 
+                     "BAS_RR.1", "BAS_RR.2"), 
+			new=c("TwinID_1", "TwinID_2", "SDS_BMI_60m_1", "SDS_BMI_60m_2", "CEBQ_FR_1", "CEBQ_FR_2", "CEBQ_SE_1", "CEBQ_SE_2",
+                     "CEBQ_SR_1", "CEBQ_SR_2", "CEBQ_EX_1", "CEBQ_EX_2", "CBQ_IMP_1", "CBQ_IMP_2", "CBQ_IHC_1", "CBQ_IHC_2", "BAS_RR_1", "BAS_RR_2"))
+
+
+
+hist (Data1$SDS_BMI_60m_1)
+hist (Data1$SDS_BMI_60m_2)
+hist (Data1$CEBQ_FR_1)
+hist (Data1$CEBQ_FR_2)
+hist (Data1$CEBQ_EX_1)
+hist (Data1$CEBQ_EX_2)
+hist (Data1$BAS_RR_1)
+hist (Data1$BAS_RR_2)
+
+table (Data1$Zygosity_new)
+table (Data1$sexZyg_new)
+
+
+table (Data1$SDS_BMI_60m_1)
+table (Data1$SDS_BMI_60m_2)
+
+Data1$SDS_BMI_60m_1[Data1$SDS_BMI_60m_1<=-5] <- NA
+Data1$SDS_BMI_60m_2[Data1$SDS_BMI_60m_2<=-5] <- NA
+
+##
+###BMI-SDS (regressed on age and sex)
+Data1$rCEBQ_EX_1  <- residuals (lm(Data1$CEBQ_EX_1~Data1$ageT7+Data1$sex1, na.action="na.exclude"))
+Data1$rCEBQ_FR_1   <- residuals (lm(Data1$CEBQ_FR_1~Data1$ageT7+Data1$sex1, na.action="na.exclude"))
+Data1$rCBQ_IMP_1  <- residuals (lm(Data1$CBQ_IMP_1~Data1$ageT7+Data1$sex1, na.action="na.exclude"))
+Data1$rBAS_RR_1 <- residuals (lm(Data1$BAS_RR_1~Data1$ageT7+Data1$sex1, na.action="na.exclude"))
+
+Data1$rCEBQ_EX_2  <- residuals (lm(Data1$CEBQ_EX_2~Data1$ageT7+Data1$sex2, na.action="na.exclude"))
+Data1$rCEBQ_FR_2  <- residuals (lm(Data1$CEBQ_FR_2~Data1$ageT7+Data1$sex2, na.action="na.exclude"))
+Data1$rCBQ_IMP_2  <- residuals (lm(Data1$CBQ_IMP_2~Data1$ageT7+Data1$sex2, na.action="na.exclude"))
+Data1$rBAS_RR_2 <- residuals (lm(Data1$BAS_RR_2~Data1$ageT7+Data1$sex2, na.action="na.exclude"))
+
+###increase SD
+Data1$rbmi_60m_1a <- (Data1$SDS_BMI_60m_1 *5)
+Data1$rCEBQ_FR_1a <- (Data1$rCEBQ_FR_1 *5)
+Data1$rCEBQ_EX_1a <- (Data1$rCEBQ_EX_1 *5)
+Data1$rBAS_RR_1a <- (Data1$rBAS_RR_1 *5)
+
+Data1$rbmi_60m_2a <- (Data1$SDS_BMI_60m_2 *5)
+Data1$rCEBQ_FR_2a <- (Data1$rCEBQ_FR_2 *5)
+Data1$rCEBQ_EX_2a <- (Data1$rCEBQ_EX_2 *5)
+Data1$rBAS_RR_2a <- (Data1$rBAS_RR_2 *5)
+
+psych::describe (Data1)
+
+Data1_var1 <- Data1 [, c("rbmi_60m_1a", "rCEBQ_FR_1a", "rCEBQ_EX_1a",  "rBAS_RR_1a")]
+
+Data1_var2 <- Data1 [, c("rbmi_60m_1a", "rCEBQ_FR_2a", "rCEBQ_EX_2a",  "rBAS_RR_2a")]
+
+M_1 <- cor(Data1_var1, use="complete.obs", method="pearson")
+corrplot(M_1,  method="circle", type="lower")
+
+M_2 <- cor(Data1_var2, use="complete.obs", method="pearson")
+corrplot(M_2,  method="circle", type="lower")
+
+DZOSwtfemalefirst <- subset (Data1, sexZyg_new==5 & sex1==2)
+DZOSwtfemalefirst_ed <- DZOSwtfemalefirst [,  c("famID", "ageT7", "sex2", "sex1", "Zygosity_new", "sexZyg_new", "TwinID_2", "TwinID_1", 
+                                       "rbmi_60m_2a", "rbmi_60m_1a", 
+                                       "rCEBQ_FR_2a", "rCEBQ_FR_1a", 
+                                       "rCEBQ_EX_2a", "rCEBQ_EX_1a", 
+                                       "rBAS_RR_2a", "rBAS_RR_1a")]
+
+DZOSwtfemalefirst_ed <- DZOSwtfemalefirst [,  c("famID", "ageT7", "sex2", "sex1",  "Zygosity_new", "sexZyg_new", "TwinID_2", "TwinID_1", 
+                                                "rbmi_60m_2a", "rbmi_60m_1a", 
+                                                "rCEBQ_FR_2a", "rCEBQ_FR_1a", 
+                                                "rCEBQ_EX_2a", "rCEBQ_EX_1a", 
+                                                "rBAS_RR_2a", "rBAS_RR_1a")]
+
+DZOSwtfemalefirst_ede <- rename(DZOSwtfemalefirst_ed, c("famID"="famID", "ageT7"="ageT7", "sex2"="esex1", "sex1"="esex2", 
+                                                        "Zygosity_new"="Zygosity_new", "sexZyg_new"="sexZyg_new", "TwinID_2"="eTwinID_1", "TwinID_1"="eTwinID_2", 
+                                                        "rbmi_60m_2a"="erbmi_60m_1a", "rbmi_60m_1a"="erbmi_60m_2a", 
+                                                        "rCEBQ_FR_2a"="erCEBQ_FR_1a", "rCEBQ_FR_1a"="erCEBQ_FR_2a", 
+                                                        "rCEBQ_EX_2a"="erCEBQ_EX_1a", "rCEBQ_EX_1a"="erCEBQ_EX_2a",
+                                                        "rBAS_RR_2a"="erBAS_RR_1a",  "rBAS_RR_1a"="erBAS_RR_2a"))
+
+
+### SE, NO SR in CEBQ : Slowness response and saeity responsivness - mainly control by hypothalamus - biologiacl hunger - energy balance 
+##only FR (tendency to overeat; congitive +++), EX (behavioural eating; external) FR -> EX -> BMI - CEBQ
+# CBQ - high on Reward responbsiveness - food responsiveness of part of RR- higher level, domain general 
+# BAS - ihibitory control - won't act on it. 
+
+firstdata <- subset (Data1, !c(sexZyg_new==5 & sex1==2))
+
+firstdata_ed <- rename(firstdata, c("famID"="famID", "ageT7"="ageT7", "sex1"="esex1", "sex2"="esex2", 
+                                                        "Zygosity_new"="Zygosity_new", "sexZyg_new"="sexZyg_new", "TwinID_1"="eTwinID_1", "TwinID_2"="eTwinID_2", 
+                                                        "rbmi_60m_1a"="erbmi_60m_1a", "rbmi_60m_2a"="erbmi_60m_2a", 
+                                                        "rCEBQ_FR_1a"="erCEBQ_FR_1a", "rCEBQ_FR_2a"="erCEBQ_FR_2a",    
+                                                        "rCEBQ_EX_1a"="erCEBQ_EX_1a", "rCEBQ_EX_2a"="erCEBQ_EX_2a", 
+                                                        "rBAS_RR_1a"="erBAS_RR_1a",  "rBAS_RR_2a"="erBAS_RR_2a"))
+
+firstdatawtSDchange <- firstdata_ed [,  c("famID", "ageT7", "esex1", "esex2", "Zygosity_new", "sexZyg_new", "eTwinID_1", "eTwinID_2", 
+                         "erbmi_60m_1a", "erbmi_60m_2a", 
+                         "erCEBQ_FR_1a", "erCEBQ_FR_2a", 
+                         "erCEBQ_EX_1a", "erCEBQ_EX_2a", 
+                         "erBAS_RR_1a", "erBAS_RR_2a")]
+
+newdata <- rbind(firstdatawtSDchange, DZOSwtfemalefirst_ede)
+str (newdata)
+
+View (newdata)
+check <- subset (newdata, c(sexZyg_new==5 & esex1==2))
+View (check)
+
+Biv 		<-newdata [,c("famID", "ageT7", "sexZyg_new", "esex1", 
+                    "erbmi_60m_1a", "erCEBQ_FR_1a", "erCEBQ_EX_1a", "erBAS_RR_1a", 
+                    "esex2", 
+                    "erbmi_60m_2a", "erCEBQ_FR_2a", "erCEBQ_EX_2a", "erBAS_RR_2a")]
+
+# Re-name variables in Biv for OpenMx, names cannot have a '.' in the name
+names(Biv) 	<- c("famID", "ageT7", "sexzyg", "sex1", "rBMI1", "rFR1", "rEX1", "rRR1", 
+                 "sex2", "rBMI2","rFR2", "rEX2","rRR2")
+names(Biv)
+describe(Biv)
+View(Biv)
+
+
+Allfour		<-Biv [,c("famID", "sexzyg", 
+                    "rFR1", "rEX1", "rRR1", "rBMI1", 
+                    "rFR2", "rEX2", "rRR2", "rBMI2")]
+
+Allfour <- as.data.frame (Allfour)
+Allfour$sexzyg <- as.numeric (Allfour$sexzyg)
+psych::describe(Allfour)
+str(Allfour)
+
+nv 	<- 4			# number of variables per twin
+ntv 	<- nv*2		# number of variables per pair
+
+useVars	<- c('rFR1', 'rEX1', 'rRR1', 'rBMI1', 'rFR2', 'rEX2', 'rRR2', 'rBMI2')
+selVars	<- c('rFR1', 'rEX1', 'rRR1', 'rBMI1', 'rFR2', 'rEX2', 'rRR2', 'rBMI2')
+
+
+# CREATE MULTIPLE DATA GROUPS
+mzmData	<- subset(Allfour, sexzyg==1, useVars)
+dzmData	<- subset(Allfour, sexzyg==2, useVars)
+mzfData	<- subset(Allfour, sexzyg==3, useVars)
+dzfData	<- subset(Allfour, sexzyg==4, useVars)
+dzoData	<- subset(Allfour, sexzyg==5, useVars)
+
+psych::describe(mzmData)
+psych::describe(dzmData)
+psych::describe(mzfData)
+psych::describe(dzfData)
+psych::describe(dzoData)
+#attach(Allfour)
+
+# -------------------------------------------------------------------------------------------------------------------
+# MODEL 1:	Constrained Correlation Model, by sex and zygosity 
+#
+# ------------------------------------------------------------------------------------------------------------------
+
+LabCorMZM	<-c('r21m_FREX', 'r21m_FRRR', 'r21m_FRBMI', 
+              'rMZm_FR',  'rMZxtxtm_FREX', 'rMZxtxtm_FRRR', 'rMZxtxtm_FRBMI', 
+              'r21m_EXRR', 'r21m_EXBMI', 'rMZxtxtm_FREX', "rMZm_EX","rMZxtxtm_EXRR", "rMZxtxtm_EXBMI", 
+              "r21m_RRBMI", 'rMZxtxtm_FRRR', 'rMZxtxtm_EXRR', 'rMZm_RR', "rMZxtxtm_RRBMI", 'rMZxtxtm_FRBMI', 'rMZxtxtm_EXBMI','rMZxtxtm_RRBMI', 
+              'rMZm_BMI', 'r21m_FREX', 'r21m_FRRR',  'r21m_FRBMI', 'r21m_EXRR', 'r21m_EXBMI',  'r21m_RRBMI')
+
+LabCorDZM	<-c('r21m_FREX', 'r21m_FRRR', 'r21m_FRBMI', 
+              'rDZm_FR',  'rDZxtxtm_FREX', 'rDZxtxtm_FRRR', 'rDZxtxtm_FRBMI', 
+              'r21m_EXRR', 'r21m_EXBMI', 'rDZxtxtm_FREX', "rDZm_EX","rDZxtxtm_EXRR", "rDZxtxtm_EXBMI", 
+              "r21m_RRBMI", 'rDZxtxtm_FRRR', 'rDZxtxtm_EXRR', 'rDZm_RR', "rDZxtxtm_RRBMI", 'rDZxtxtm_FRBMI', 'rDZxtxtm_EXBMI','rDZxtxtm_RRBMI', 
+              'rDZm_BMI', 'r21m_FREX', 'r21m_FRRR',  'r21m_FRBMI', 'r21m_EXRR', 'r21m_EXBMI',  'r21m_RRBMI')
+
+LabCorMZF	<-c('r21f_FREX', 'r21f_FRRR', 'r21f_FRBMI', 
+              'rMZf_FR',  'rMZxtxtf_FREX', 'rMZxtxtf_FRRR', 'rMZxtxtf_FRBMI', 
+              'r21f_EXRR', 'r21f_EXBMI', 'rMZxtxtf_FREX', "rMZf_EX","rMZxtxtf_EXRR", "rMZxtxtf_EXBMI", 
+              "r21f_RRBMI", 'rMZxtxtf_FRRR', 'rMZxtxtf_EXRR', 'rMZf_RR', "rMZxtxtf_RRBMI", 'rMZxtxtf_FRBMI', 'rMZxtxtf_EXBMI','rMZxtxtf_RRBMI', 
+              'rMZf_BMI', 'r21f_FREX', 'r21f_FRRR',  'r21f_FRBMI', 'r21f_EXRR', 'r21f_EXBMI',  'r21f_RRBMI')
+
+LabCorDZF	<-c('r21f_FREX', 'r21f_FRRR', 'r21f_FRBMI', 
+              'rDZf_FR',  'rDZxtxtf_FREX', 'rDZxtxtf_FRRR', 'rMZxtxtf_FRBMI', 
+              'r21f_EXRR', 'r21f_EXBMI', 'rDZxtxtf_FREX', "rDZf_EX","rDZxtxtf_EXRR", "rDZxtxtf_EXBMI", 
+              "r21f_RRBMI", 'rDZxtxtf_FRRR', 'rDZxtxtf_EXRR', 'rDZf_RR', "rDZxtxtf_RRBMI", 'rDZxtxtf_FRBMI', 'rDZxtxtf_EXBMI','rDZxtxtf_RRBMI', 
+              'rDZf_BMI', 'r21f_FREX', 'r21f_FRRR',  'r21f_FRBMI', 'r21f_EXRR', 'r21f_EXBMI',  'r21f_RRBMI')
+
+LabCorDOS	<-c('r21m_FREX', 'r21m_FRRR', 'r21m_FRBMI', 
+              'rDZos_FR',  'rDZxtxtos_FREX', 'rDZxtxtos_FRRR', 'rDZxtxtos_FRBMI', 
+              'r21m_EXRR', 'r21m_EXBMI', 'rDZxtxtos_FREX', "rDZos_EX","rDZxtxtos_EXRR", "rDZxtxtos_EXBMI", 
+              "r21m_RRBMI", 'rDZxtxtos_FRRR', 'rDZxtxtos_EXRR', 'rDZos_RR', "rDZxtxtos_RRBMI", 'rDZxtxtos_FRBMI', 'rDZxtxtos_EXBMI','rDZxtxtos_RRBMI', 
+              'rDZos_BMI', 'r21f_FREX', 'r21f_FRRR',  'r21f_FRBMI', 'r21f_EXRR', 'r21f_EXBMI',  'r21f_RRBMI')
+
+stv <- read.table ("stv.csv", sep = ",", header=FALSE, stringsAsFactors = FALSE)
+
+#StValmz	<- matrix(0.1,nrow=13,ncol=7)
+StValmz	<- as.matrix(stv)
+StValdz	<- as.matrix(stv)
+
+
+# Matrix & Algebra for expected means (SND)
+MeanM		<-mxMatrix( type="Full", nrow=1, ncol=ntv, free=T, values=c(1,1,1,1,1,1,1,1),
+                   labels=c('meanv1mFR','meanv1mEX','meanv1mRR', 'meanv1mBMI',
+                            'meanv1mFR','meanv1mEX','meanv1mRR', 'meanv1mBMI'),name="expMm")
+MeanF		<-mxMatrix( type="Full", nrow=1, ncol=ntv, free=T, values=c(1,1,1,1,1,1,1,1),
+                   labels=c('meanv1fFR','meanv1fEX','meanv1fRR', 'meanv1fBMI',
+                            'meanv1fFR','meanv1fEX','meanv1fRR', 'meanv1fBMI'),name="expMf")
+MeanMF	<-mxMatrix( type="Full", nrow=1, ncol=ntv, free=T, values=c(1,1,1,1,1,1,1,1),
+                   labels=c('meanv1mFR','meanv1mEX','meanv1mRR', 'meanv1mBMI',
+                            'meanv1fFR','meanv1fEX','meanv1fRR', 'meanv1fBMI'),name="expMmf")
+
+
+# Matrices to store SD and cor matrices
+SDm		<-mxMatrix( type="Diag", nrow=ntv, ncol=ntv, free=T, values=c(3,3,3,3,3,3,3,3),
+                 labels=c('sdmFR', 'sdmEX', 'sdmRR', 'sdmBMI', 
+                          'sdmFR', 'sdmEX', 'sdmRR', 'sdmBMI'),  name="sdM")
+SDf		<-mxMatrix( type="Diag", nrow=ntv, ncol=ntv, free=T, values=c(3,3,3,3,3,3,3,3),
+                 labels=c('sdfFR', 'sdfEX', 'sdfRR', 'sdfBMI', 
+                          'sdfFR', 'sdfEX', 'sdfRR', 'sdfBMI'),  name="sdF")
+SDmf		<-mxMatrix( type="Diag", nrow=ntv, ncol=ntv, free=T, values=c(3,3,3,3,3,3,3,3), 
+                  labels=c('sdmFR', 'sdmEX', 'sdmRR', 'sdmBMI', 
+                           'sdfFR', 'sdfEX', 'sdfRR', 'sdfBMI'),  name="sdMF")
+
+corMZM	<-mxMatrix( type="Stand", nrow=ntv, ncol=ntv, free=T, values=StValmz, labels=LabCorMZM, lbound=-.999, ubound=.999, name="Rmzm")
+corDZM	<-mxMatrix( type="Stand", nrow=ntv, ncol=ntv, free=T, values=StValdz, labels=LabCorDZM, lbound=-.999, ubound=.999, name="Rdzm")
+corMZF	<-mxMatrix( type="Stand", nrow=ntv, ncol=ntv, free=T, values=StValmz, labels=LabCorMZF, lbound=-.999, ubound=.999, name="Rmzf")
+corDZF	<-mxMatrix( type="Stand", nrow=ntv, ncol=ntv, free=T, values=StValdz, labels=LabCorDZF, lbound=-.999, ubound=.999, name="Rdzf")
+corDOS	<-mxMatrix( type="Stand", nrow=ntv, ncol=ntv, free=T, values=StValdz, labels=LabCorDOS, lbound=-.999, ubound=.999, name="Rdos")
+
+covMZM	<-mxAlgebra( expression=sdM %*% Rmzm %*% t(sdM), name="expCovMZM")
+covDZM	<-mxAlgebra( expression=sdM %*% Rdzm %*% t(sdM), name="expCovDZM")
+covMZF	<-mxAlgebra( expression=sdF %*% Rmzf %*% t(sdF), name="expCovMZF")
+covDZF	<-mxAlgebra( expression=sdF %*% Rdzf %*% t(sdF), name="expCovDZF")
+covDOS	<-mxAlgebra( expression=sdMF %*% Rdos %*% t(sdMF), name="expCovDOS")
+
+# Data objects for Multiple Groups
+dataMZM	<- mxData( observed=mzmData, type="raw" )
+dataDZM	<- mxData( observed=dzmData, type="raw" )
+dataMZF	<- mxData( observed=mzfData, type="raw" )
+dataDZF	<- mxData( observed=dzfData, type="raw" )
+dataDOS	<- mxData( observed=dzoData, type="raw" )
+
+# Objective objects for Multiple Groups
+objmzm  <- mxExpectationNormal( covariance="expCovMZM", means="expMm", dimnames=selVars)
+objdzm	<- mxExpectationNormal( covariance="expCovDZM", means="expMm", dimnames=selVars)
+objmzf	<- mxExpectationNormal( covariance="expCovMZF", means="expMf", dimnames=selVars)
+objdzf	<- mxExpectationNormal( covariance="expCovDZF", means="expMf", dimnames=selVars)
+objdzo	<- mxExpectationNormal( covariance="expCovDOS", means="expMmf", dimnames=selVars)
+
+fitFunction 	<- mxFitFunctionML()
+
+# Combine Groups
+parsm		<- list( MeanM, fitFunction)
+parsf		<- list( MeanF, fitFunction)
+modelMZM	<- mxModel(parsm, SDm, corMZM, covMZM, dataMZM, objmzm, name="MZM")
+modelDZM	<- mxModel(parsm, SDm, corDZM, covDZM, dataDZM, objdzm, name="DZM")
+modelMZF	<- mxModel(parsf, SDf, corMZF, covMZF, dataMZF, objmzf, name="MZF")
+modelDZF	<- mxModel(parsf, SDf, corDZF, covDZF, dataDZF, objdzf, name="DZF")
+modelDOS	<- mxModel(parsm, parsf, MeanMF, SDmf, corDOS, covDOS, dataDOS, objdzo, name="DOS")
+
+minus2ll	<- mxAlgebra(expression=MZM.objective + DZM.objective + MZF.objective + DZF.objective + DOS.objective, name="m2LL")
+obj		<- mxFitFunctionAlgebra("m2LL")
+# in order of Table
+#ciDep  	<- mxCI (c ('MZM.Rmzm[3,1]', 'DZM.Rdzm[3,1]', 'MZF.Rmzf[3,1]', 'DZF.Rdzf[3,1]', 'DOS.Rdos[3,1]' ) )	# CI twin cor DEP	
+#ciRph  	<- mxCI (c ('MZM.Rmzm[2,1]', 'MZF.Rmzf[2,1]' ) )									# CI Rph in males and females				
+#ciCV  	<- mxCI (c ('MZM.Rmzm[4,2]', 'DZM.Rdzm[4,2]', 'MZF.Rmzf[4,2]', 'DZF.Rdzf[4,2]', 'DOS.Rdos[4,2]' ) )	# CI twin cor CV 			
+#cixtxt  	<- mxCI (c ('MZM.Rmzm[4,1]', 'DZM.Rdzm[4,1]', 'MZF.Rmzf[4,1]', 'DZF.Rdzf[4,1]', 'DOS.Rdos[4,1]' ) )	# CI x-twin x-trait cor 			
+#corModel	<- mxModel('cor', modelMZM, modelDZM, modelMZF, modelDZF, modelDOS, minus2ll, obj, ciDep, ciRph, ciCV, cixtxt) 
+corModel	<- mxModel('cor', modelMZM, modelDZM, modelMZF, modelDZF, modelDOS, minus2ll, obj) 
+
+# ------------------------------------------------------------------------------
+# RUN correlational model
+corFit    <- mxRun(corModel, intervals=T)
+#corFit    <- mxTryHard(corModel, intervals=F)
+
+(corSumm  <- summary(corFit))
+
+# Generate Output
+mxEval(MZM.Rmzm, corFit)
+mxEval(DZM.Rdzm, corFit)
+mxEval(MZF.Rmzf, corFit)
+mxEval(DZF.Rdzf, corFit)
+mxEval(DOS.Rdos, corFit)
+################################################################################################################################################################################
+# -------------------------------------------------------------------------------------------------------------------
+# MODEL 2:	Correlated model but MZM=MZF etc
+
+LabCorMZ	<-c('r21m_FREX', 'r21m_FRRR', 'r21m_FRBMI', 
+              'rMZm_FR',  'rMZxtxtm_FREX', 'rMZxtxtm_FRRR', 'rMZxtxtm_FRBMI', 
+              'r21m_EXRR', 'r21m_EXBMI', 'rMZxtxtm_FREX', "rMZm_EX","rMZxtxtm_EXRR", "rMZxtxtm_EXBMI", 
+              "r21m_RRBMI", 'rMZxtxtm_FRRR', 'rMZxtxtm_EXRR', 'rMZm_RR', "rMZxtxtm_RRBMI", 'rMZxtxtm_FRBMI', 'rMZxtxtm_EXBMI','rMZxtxtm_RRBMI', 
+              'rMZm_BMI', 'r21m_FREX', 'r21m_FRRR',  'r21m_FRBMI', 'r21m_EXRR', 'r21m_EXBMI',  'r21m_RRBMI')
+
+LabCorDZ	<-c('r21m_FREX', 'r21m_FRRR', 'r21m_FRBMI', 
+              'rDZm_FR',  'rDZxtxtm_FREX', 'rDZxtxtm_FRRR', 'rDZxtxtm_FRBMI', 
+              'r21m_EXRR', 'r21m_EXBMI', 'rDZxtxtm_FREX', "rDZm_EX","rDZxtxtm_EXRR", "rDZxtxtm_EXBMI", 
+              "r21m_RRBMI", 'rDZxtxtm_FRRR', 'rDZxtxtm_EXRR', 'rDZm_RR', "rDZxtxtm_RRBMI", 'rDZxtxtm_FRBMI', 'rDZxtxtm_EXBMI','rDZxtxtm_RRBMI', 
+              'rDZm_BMI', 'r21m_FREX', 'r21m_FRRR',  'r21m_FRBMI', 'r21m_EXRR', 'r21m_EXBMI',  'r21m_RRBMI')
+
+stv <- read.table ("stv.csv", sep = ",", header=FALSE, stringsAsFactors = FALSE)
+
+#StValmz	<- matrix(0.1,nrow=13,ncol=7)
+StValmz	<- as.matrix(stv)
+StValdz	<- as.matrix(stv)
+
+
+# Matrix & Algebra for expected means (SND)
+MeanM		<-mxMatrix( type="Full", nrow=1, ncol=ntv, free=T, values=c(1,1,1,1,1,1,1,1),
+                   labels=c('meanv1mFR','meanv1mEX','meanv1mRR', 'meanv1mBMI',
+                            'meanv1mFR','meanv1mEX','meanv1mRR', 'meanv1mBMI'),name="expMm")
+MeanF		<-mxMatrix( type="Full", nrow=1, ncol=ntv, free=T, values=c(1,1,1,1,1,1,1,1),
+                   labels=c('meanv1fFR','meanv1fEX','meanv1fRR', 'meanv1fBMI',
+                            'meanv1fFR','meanv1fEX','meanv1fRR', 'meanv1fBMI'),name="expMf")
+MeanMF	<-mxMatrix( type="Full", nrow=1, ncol=ntv, free=T, values=c(1,1,1,1,1,1,1,1),
+                   labels=c('meanv1mFR','meanv1mEX','meanv1mRR', 'meanv1mBMI',
+                            'meanv1fFR','meanv1fEX','meanv1fRR', 'meanv1fBMI'),name="expMmf")
+
+
+# Matrices to store SD and cor matrices
+SDm		<-mxMatrix( type="Diag", nrow=ntv, ncol=ntv, free=T, values=c(3,3,3,3,3,3,3,3),
+                 labels=c('sdmFR', 'sdmEX', 'sdmRR', 'sdmBMI', 
+                          'sdmFR', 'sdmEX', 'sdmRR', 'sdmBMI'),  name="sdM")
+SDf		<-mxMatrix( type="Diag", nrow=ntv, ncol=ntv, free=T, values=c(3,3,3,3,3,3,3,3),
+                 labels=c('sdfFR', 'sdfEX', 'sdfRR', 'sdfBMI', 
+                          'sdfFR', 'sdfEX', 'sdfRR', 'sdfBMI'),  name="sdF")
+SDmf		<-mxMatrix( type="Diag", nrow=ntv, ncol=ntv, free=T, values=c(3,3,3,3,3,3,3,3), 
+                  labels=c('sdmFR', 'sdmEX', 'sdmRR', 'sdmBMI', 
+                           'sdfFR', 'sdfEX', 'sdfRR', 'sdfBMI'),  name="sdMF")
+
+corMZM	<-mxMatrix( type="Stand", nrow=ntv, ncol=ntv, free=T, values=StValmz, labels=LabCorMZ, lbound=-.999, ubound=.999, name="Rmzm")
+corDZM	<-mxMatrix( type="Stand", nrow=ntv, ncol=ntv, free=T, values=StValdz, labels=LabCorDZ, lbound=-.999, ubound=.999, name="Rdzm")
+corMZF	<-mxMatrix( type="Stand", nrow=ntv, ncol=ntv, free=T, values=StValmz, labels=LabCorMZ, lbound=-.999, ubound=.999, name="Rmzf")
+corDZF	<-mxMatrix( type="Stand", nrow=ntv, ncol=ntv, free=T, values=StValdz, labels=LabCorDZ, lbound=-.999, ubound=.999, name="Rdzf")
+corDOS	<-mxMatrix( type="Stand", nrow=ntv, ncol=ntv, free=T, values=StValdz, labels=LabCorDZ, lbound=-.999, ubound=.999, name="Rdos")
+
+covMZM	<-mxAlgebra( expression=sdM %*% Rmzm %*% t(sdM), name="expCovMZM")
+covDZM	<-mxAlgebra( expression=sdM %*% Rdzm %*% t(sdM), name="expCovDZM")
+covMZF	<-mxAlgebra( expression=sdF %*% Rmzf %*% t(sdF), name="expCovMZF")
+covDZF	<-mxAlgebra( expression=sdF %*% Rdzf %*% t(sdF), name="expCovDZF")
+covDOS	<-mxAlgebra( expression=sdMF %*% Rdos %*% t(sdMF), name="expCovDOS")
+
+# Data objects for Multiple Groups
+dataMZM	<- mxData( observed=mzmData, type="raw" )
+dataDZM	<- mxData( observed=dzmData, type="raw" )
+dataMZF	<- mxData( observed=mzfData, type="raw" )
+dataDZF	<- mxData( observed=dzfData, type="raw" )
+dataDOS	<- mxData( observed=dzoData, type="raw" )
+
+# Objective objects for Multiple Groups
+objmzm  <- mxExpectationNormal( covariance="expCovMZM", means="expMm", dimnames=selVars)
+objdzm	<- mxExpectationNormal( covariance="expCovDZM", means="expMm", dimnames=selVars)
+objmzf	<- mxExpectationNormal( covariance="expCovMZF", means="expMf", dimnames=selVars)
+objdzf	<- mxExpectationNormal( covariance="expCovDZF", means="expMf", dimnames=selVars)
+objdzo	<- mxExpectationNormal( covariance="expCovDOS", means="expMmf", dimnames=selVars)
+
+fitFunction 	<- mxFitFunctionML()
+
+# Combine Groups
+parsm		<- list( MeanM, fitFunction)
+parsf		<- list( MeanF, fitFunction)
+modelMZM	<- mxModel(parsm, SDm, corMZM, covMZM, dataMZM, objmzm, name="MZM")
+modelDZM	<- mxModel(parsm, SDm, corDZM, covDZM, dataDZM, objdzm, name="DZM")
+modelMZF	<- mxModel(parsf, SDf, corMZF, covMZF, dataMZF, objmzf, name="MZF")
+modelDZF	<- mxModel(parsf, SDf, corDZF, covDZF, dataDZF, objdzf, name="DZF")
+modelDOS	<- mxModel(parsm, parsf, MeanMF, SDmf, corDOS, covDOS, dataDOS, objdzo, name="DOS")
+
+minus2ll	<- mxAlgebra(expression=MZM.objective + DZM.objective + MZF.objective + DZF.objective + DOS.objective, name="m2LL")
+obj		<- mxFitFunctionAlgebra("m2LL")
+# in order of Table
+#ciDep  	<- mxCI (c ('MZM.Rmzm[3,1]', 'DZM.Rdzm[3,1]', 'MZF.Rmzf[3,1]', 'DZF.Rdzf[3,1]', 'DOS.Rdos[3,1]' ) )	# CI twin cor DEP	
+#ciRph  	<- mxCI (c ('MZM.Rmzm[2,1]', 'MZF.Rmzf[2,1]' ) )									# CI Rph in males and females				
+#ciCV  	<- mxCI (c ('MZM.Rmzm[4,2]', 'DZM.Rdzm[4,2]', 'MZF.Rmzf[4,2]', 'DZF.Rdzf[4,2]', 'DOS.Rdos[4,2]' ) )	# CI twin cor CV 			
+#cixtxt  	<- mxCI (c ('MZM.Rmzm[4,1]', 'DZM.Rdzm[4,1]', 'MZF.Rmzf[4,1]', 'DZF.Rdzf[4,1]', 'DOS.Rdos[4,1]' ) )	# CI x-twin x-trait cor 			
+#corModel	<- mxModel('cor', modelMZM, modelDZM, modelMZF, modelDZF, modelDOS, minus2ll, obj, ciDep, ciRph, ciCV, cixtxt) 
+conModel	<- mxModel('con', modelMZM, modelDZM, modelMZF, modelDZF, modelDOS, minus2ll, obj) 
+
+# ------------------------------------------------------------------------------
+# RUN correlational model constraint
+conFit    <- mxRun(conModel, intervals=T)
+
+(conSumm  <- summary(conFit))
+
+mxCompare(corFit, conFit)
+
+# Generate Output
+mxEval(MZM.Rmzm, conFit)
+mxEval(DZM.Rdzm, conFit)
+mxEval(MZF.Rmzf, conFit)
+mxEval(DZF.Rdzf, conFit)
+mxEval(DOS.Rdos, conFit)
+# -------------------------------------------------------------------------------------------------------
+################################################################################################################################################################################
+# -------------------------------------------------------------------------------------------------------------------
+# MODEL 3:	HOMOGENEITY MODEL, CHOLESKY
+#
+# -------------------------------------------------------------------------------------------------------------------
+
+
+# To create Labels for Lower Triangular Matrices
+aLabs <- paste("a", do.call(c, sapply(seq(1, nv), function(x){ paste(x:nv, x,sep="") })), sep="")
+cLabs <- paste("c", do.call(c, sapply(seq(1, nv), function(x){ paste(x:nv, x,sep="") })), sep="")
+eLabs <- paste("e", do.call(c, sapply(seq(1, nv), function(x){ paste(x:nv, x,sep="") })), sep="")
+
+# Matrix & Algebra for expected means (SND)
+MeanM		<-mxMatrix( type="Full", nrow=1, ncol=ntv, free=T, values=c(0), labels=c('meanv1mFR', 'meanv1mEX','meanv1mIMP', 'meanv1mBMI', 'meanv1mFR', 'meanv1mEX','meanv1mIMP', 'meanv1mBMI'), name="expMm" )
+MeanF		<-mxMatrix( type="Full", nrow=1, ncol=ntv, free=T, values=c(0), labels=c('meanv1fFR', 'meanv1fEX','meanv1fIMP', 'meanv1fBMI', 'meanv1fFR', 'meanv1fEX','meanv1fIMP', 'meanv1fBMI'), name="expMf" )
+MeanMF	<-mxMatrix( type="Full", nrow=1, ncol=ntv, free=T, values=c(0), labels=c('meanv1mFR', 'meanv1mEX','meanv1mIMP', 'meanv1mBMI', 'meanv1fFR', 'meanv1fEX','meanv1fIMP', 'meanv1fBMI'),name="expMmf" )
+
+# Matrices to store a, and e Path Coefficients
+pathA	<- mxMatrix( type="Lower", nrow=nv, ncol=nv, free=T, values=1, label=aLabs, name="a")
+pathC	<- mxMatrix( type="Lower", nrow=nv, ncol=nv, free=T, values=1, label=cLabs, name="c")
+pathE	<- mxMatrix( type="Lower", nrow=nv, ncol=nv, free=T, values=1, label=eLabs, name="e")
+
+# Matrices generated to hold A, and E computed Variance Components
+covA		<- mxAlgebra( expression=a %*% t(a), name="A")
+covC		<- mxAlgebra( expression=c %*% t(c), name="C")
+covE		<- mxAlgebra( expression=e %*% t(e), name="E")
+
+# Algebra to compute standardized variance components
+cov		<- mxAlgebra( expression=A+C+E, name="V")
+StA		<- mxAlgebra( expression=A/V, name="h2")
+StC		<- mxAlgebra( expression=C/V, name="c2")
+StE		<- mxAlgebra( expression=E/V, name="e2")
+MId		<- mxMatrix( type="Iden", nrow=nv, ncol=nv, name="id2" )
+Ra		<- mxAlgebra( expression= solve(sqrt(id2*A))  %&% A , name="Ra")
+Rc		<- mxAlgebra( expression= solve(sqrt(id2*C))  %&% C , name="Rc")
+Re		<- mxAlgebra( expression= solve(sqrt(id2*E))  %&% E , name="Re")
+
+Rph		<- mxAlgebra( expression= solve(sqrt(id2*V))  %&% V , name="r")
+
+# Algebra to compute Rph-A, Rph-C & Rph-E
+rph21	<- mxAlgebra( expression= cbind ( (sqrt(h2[1,1])*r[2,1]*sqrt(h2[2,2])),  
+                                        (sqrt(c2[1,1])*r[2,1]*sqrt(c2[2,2])), 
+                                        (sqrt(e2[1,1])*r[2,1]*sqrt(e2[2,2])) ), name="Rph21" )
+
+rph31	<- mxAlgebra( expression= cbind ( (sqrt(h2[1,1])*r[3,1]*sqrt(h2[3,3])),  
+                                        (sqrt(c2[1,1])*r[3,1]*sqrt(c2[3,3])), 
+                                        (sqrt(e2[1,1])*r[3,1]*sqrt(e2[3,3])) ), name="Rph31" )
+
+rph41	<- mxAlgebra( expression= cbind ( (sqrt(h2[1,1])*r[4,1]*sqrt(h2[4,4])),  
+                                        (sqrt(c2[1,1])*r[4,1]*sqrt(c2[4,4])), 
+                                        (sqrt(e2[1,1])*r[4,1]*sqrt(e2[4,4])) ), name="Rph41" )
+
+rph32	<- mxAlgebra( expression= cbind ( (sqrt(h2[2,2])*r[3,2]*sqrt(h2[3,3])),  
+                                        (sqrt(c2[2,2])*r[3,2]*sqrt(c2[3,3])), 
+                                        (sqrt(e2[2,2])*r[3,2]*sqrt(e2[3,3])) ), name="Rph32" )
+
+rph42	<- mxAlgebra( expression= cbind ( (sqrt(h2[2,2])*r[4,2]*sqrt(h2[4,4])),  
+                                        (sqrt(c2[2,2])*r[4,2]*sqrt(c2[4,4])), 
+                                        (sqrt(e2[2,2])*r[4,2]*sqrt(e2[4,4])) ), name="Rph42" )
+
+rph43	<- mxAlgebra( expression= cbind ( (sqrt(h2[3,3])*r[4,3]*sqrt(h2[4,4])),  
+                                        (sqrt(c2[3,3])*r[4,3]*sqrt(c2[4,4])), 
+                                        (sqrt(e2[3,3])*r[4,3]*sqrt(e2[4,4])) ), name="Rph43" )
+
+# Algebra for expected Variance/Covariance Matrices in MZ & DZ twins
+covMZM	<- mxAlgebra( expression= rbind  ( 	cbind(A+C+E, A+C),		
+                                           cbind(A+C, A+C+E))  		, name="expCovMZM")
+
+covMZF	<- mxAlgebra( expression= rbind  ( 	cbind(A+C+E, A+C),		
+                                           cbind(A+C, A+C+E))  		, name="expCovMZF")
+
+covDZM	<- mxAlgebra( expression= rbind  ( 	cbind(A+C+E, .5%x%A + C ),	
+                                           cbind(.5%x%A + C,  A+C+E) )		, name="expCovDZM")
+
+covDZF	<- mxAlgebra( expression= rbind  ( 	cbind(A+C+E, .5%x%A + C ),	
+                                           cbind(.5%x%A + C,  A+C+E) )		, name="expCovDZF")
+
+covDOS	<- mxAlgebra( expression= rbind  ( 	cbind(A+C+E, .5%x%A + C ),
+                                           cbind(.5%x%A + C,  A+C+E) )	, name="expCovDOS")
+
+
+# Data objects for Multiple Groups
+dataMZM	<- mxData( observed=mzmData, type="raw" )
+dataDZM	<- mxData( observed=dzmData, type="raw" )
+dataMZF	<- mxData( observed=mzfData, type="raw" )
+dataDZF	<- mxData( observed=dzfData, type="raw" )
+dataDOS	<- mxData( observed=dzoData, type="raw" )
+
+# Objective objects for Multiple Groups
+objmzm  	<- mxExpectationNormal( covariance="expCovMZM", means="expMm", dimnames=selVars )
+objdzm	<- mxExpectationNormal( covariance="expCovDZM", means="expMm", dimnames=selVars )
+objmzf	<- mxExpectationNormal( covariance="expCovMZF", means="expMf", dimnames=selVars )
+objdzf	<- mxExpectationNormal( covariance="expCovDZF", means="expMf", dimnames=selVars )
+objdzo	<- mxExpectationNormal( covariance="expCovDOS", means="expMmf", dimnames=selVars )
+
+fitFunction 	<- mxFitFunctionML()
+
+# Combine Groups
+pars		<- list(pathA, pathC, pathE, Ra, Rc, Re, covA, covC, covE, cov, StA, StC, StE, MId, Rph, rph21, rph31, rph41, rph32, rph42, rph43, fitFunction )
+modelMZM	<- mxModel(pars, MeanM, covMZM, dataMZM, objmzm, name="MZM")
+modelDZM	<- mxModel(pars, MeanM, covDZM, dataDZM, objdzm, name="DZM")
+modelMZF	<- mxModel(pars, MeanF, covMZF, dataMZF, objmzf, name="MZF")
+modelDZF	<- mxModel(pars, MeanF, covDZF, dataDZF, objdzf, name="DZF")
+modelDOS	<- mxModel(pars, MeanMF, covDOS, dataDOS, objdzo, name="DOS")
+minus2ll	<- mxAlgebra(expression=MZM.objective + DZM.objective + MZF.objective + DZF.objective + DOS.objective, name="m2LL")
+obj		<- mxFitFunctionAlgebra("m2LL")
+obj		<- mxFitFunctionAlgebra("m2LL")
+ciM  		<- mxCI (c ('MZM.h2[1,1]', 'MZM.h2[2,2]', 'MZM.h2[3,3]','MZM.h2[4,4]', 'MZM.c2[1,1]', 'MZM.c2[2,2]', 'MZM.c2[3,3]','MZM.c2[4,4]','MZM.e2[1,1]', 'MZM.e2[2,2]', 'MZM.e2[3,3]','MZM.e2[4,4]') )		# h2, c2, e2 
+cirph21	<- mxCI (c ('MZM.Rph21[1,1]', 'MZM.Rph21[1,2]', 'MZM.Rph21[1,3]'))	# rph due to A,C,E r2,1
+cirph31	<- mxCI (c ('MZM.Rph31[1,1]', 'MZM.Rph31[1,2]', 'MZM.Rph31[1,3]'))	# rph due to A,C,E r2,1
+cirph41	<- mxCI (c ('MZM.Rph41[1,1]', 'MZM.Rph41[1,2]', 'MZM.Rph41[1,3]'))	# rph due to A,C,E r2,1
+cirph32	<- mxCI (c ('MZM.Rph32[1,1]', 'MZM.Rph32[1,2]', 'MZM.Rph32[1,3]'))	# rph due to A,C,E r2,1
+cirph42	<- mxCI (c ('MZM.Rph42[1,1]', 'MZM.Rph42[1,2]', 'MZM.Rph42[1,3]'))	# rph due to A,C,E r2,1
+cirph43	<- mxCI (c ('MZM.Rph43[1,1]', 'MZM.Rph43[1,2]', 'MZM.Rph43[1,3]'))	# rph due to A,C,E r2,1
+ciRa		<- mxCI (c ('MZM.Ra[2,1]', 'MZM.Ra[3,1]', 'MZM.Ra[4,1]', 'MZM.Ra[3,2]', 'MZM.Ra[4,2]', 'MZM.Ra[4,3]'))		# A cor between 4 var
+ciRc		<- mxCI (c ('MZM.Rc[2,1]', 'MZM.Rc[3,1]', 'MZM.Rc[4,1]', 'MZM.Rc[3,2]', 'MZM.Rc[4,2]', 'MZM.Rc[4,3]'))		# C cor between 4 var
+ciRe		<- mxCI (c ('MZM.Re[2,1]', 'MZM.Re[3,1]', 'MZM.Re[4,1]', 'MZM.Re[3,2]', 'MZM.Re[4,2]', 'MZM.Re[4,3]'))		# E cor between 4 var
+ciRph  	<- mxCI (c ('MZM.r[2,1]', 'MZM.r[3,1]', 'MZM.r[4,1]', 'MZM.r[3,2]', 'MZM.r[4,2]', 'MZM.r[4,3]' ) )									# CI Rph 	
+HomChACEModel	<-mxModel('HomChACE', modelMZM, modelDZM, modelMZF, modelDZF, modelDOS, minus2ll, obj, ciM, cirph21, cirph31, cirph41, cirph32, cirph42, cirph43, ciRa, ciRc, ciRe, ciRph) 
+
+# ------------------------------------------------------------------------------
+# RUN Mutlivariate ACE Model
+HomChACEFit    <- mxRun(HomChACEModel, intervals=T)
+
+(HomChACESumm  <- summary(HomChACEFit))
+
+# Generate Output
+HomChACEFit$HomChACE$MZM.V
+HomChACEFit$HomChACE$MZM.Rph21
+HomChACEFit$HomChACE$MZM.Rph31
+HomChACEFit$HomChACE$MZM.Rph41
+HomChACEFit$HomChACE$MZM.Rph32
+HomChACEFit$HomChACE$MZM.Rph42
+HomChACEFit$HomChACE$MZM.Rph43
+HomChACEFit$HomChACE$MZM.r
+HomChACEFit$HomChACE$MZM.h2  
+HomChACEFit$HomChACE$MZM.c2
+HomChACEFit$HomChACE$MZM.e2
+
+mxCompare(corFit,conFit)
+modelfit2<- mxCompare(corFit, HomChACEFit) 
+
+write.csv(modelfit2, file="fit2.csv")
